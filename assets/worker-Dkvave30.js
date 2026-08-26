@@ -1,12 +1,376 @@
-(function(){var e=``+new URL(`yaegi-gBnBKIsY.wasm`,self.location.href).href;function t(e){function t(e){self.postMessage(e)}let n=[],r=!1,i=new Set,a=null;Promise.resolve().then(()=>e.init?.()).then(()=>{t({type:`READY`})}).catch(e=>{console.error(`[Worker Init Error]:`,e),t({type:`INIT_ERROR`,error:e?.message||String(e)})});async function o(n){let{id:r,userCode:a,testCode:o=``}=n;if(i.has(r)){i.delete(r),t({type:`RESULT`,id:r,success:!1,output:``,error:`Execution cancelled.`});return}let s={id:r,userCode:a,testCode:o,isCancelled:()=>i.has(r)};try{let n=await e.execute(a,o,s);t({type:`RESULT`,id:r,success:n.success,output:n.output,error:n.error})}catch(e){t({type:`RESULT`,id:r,success:!1,output:``,error:e?.message||String(e)})}finally{i.delete(r)}}async function s(n){let{id:r,code:o}=n;if(a&&a!==r){t({type:`LINT_RESULT`,id:r,diagnostics:[]});return}if(i.has(r)){i.delete(r),t({type:`LINT_RESULT`,id:r,diagnostics:[]});return}let s={id:r,code:o,isCancelled:()=>i.has(r)||a!==null&&a!==r};try{let n=e.lint?await e.lint(o,s):[];t({type:`LINT_RESULT`,id:r,diagnostics:Array.isArray(n)?n:[]})}catch(e){console.error(`[Worker Lint Error]:`,e),t({type:`LINT_RESULT`,id:r,diagnostics:[]})}finally{i.delete(r)}}async function c(n){try{e.reset&&await e.reset(),t({type:`RESET_DONE`,id:n.id})}catch(e){console.error(`[Worker Reset Error]:`,e),t({type:`RESET_DONE`,id:n.id})}}async function l(){if(!r){r=!0;try{for(;n.length>0;){let e=n.shift();e.type===`RUN`?await o(e):e.type===`LINT`?await s(e):e.type===`RESET`&&await c(e)}}finally{r=!1}}}self.onmessage=e=>{let t=e.data;if(!(!t||!t.type)){if(t.type===`CANCEL`){i.add(t.id);return}t.type===`LINT`&&(a=t.id),n.push(t),l()}}}function n(e){let t=new Set;if(!e||!e.trim())return{imports:t,body:``,headerLineCount:0};let n=e.split(`
-`),r=!1,i=!0,a=0,o=[];for(let e=0;e<n.length;e++){let s=n[e],c=s.trim();if(i){if(c.startsWith(`package `)){a=e+1;continue}if(c.startsWith(`import (`)||c===`import (`){r=!0,a=e+1;continue}if(r){if(a=e+1,c===`)`){r=!1;continue}c&&!c.startsWith(`//`)&&!c.startsWith(`/*`)&&t.add(c);continue}if(c.startsWith(`import `)){a=e+1;let n=c.slice(7).trim();n&&t.add(n);continue}c!==``&&!c.startsWith(`//`)&&!c.startsWith(`/*`)?(i=!1,o.push(s)):a=e+1}else o.push(s)}return{imports:t,body:o.join(`
-`).trim(),headerLineCount:a}}let r=null;function i(){return r||=n(`package main
+(function(){var e=`package main
 
 import (
+	"container/heap"
 	"fmt"
-	"os"
+	"math"
 	"reflect"
+	"sort"
+	"strconv"
+	"strings"
 )
+
+type ListNode struct {
+	Val  int
+	Next *ListNode
+}
+
+type TreeNode struct {
+	Val   int
+	Left  *TreeNode
+	Right *TreeNode
+}
+
+type Node struct {
+	Val       int
+	Neighbors []*Node
+}
+
+type Interval struct {
+	Start int
+	End   int
+}
+
+func MakeInt(v int) *int {
+	return &v
+}
+
+func ListToLinkedList(arr []int) *ListNode {
+	if len(arr) == 0 {
+		return nil
+	}
+	head := &ListNode{Val: arr[0]}
+	curr := head
+	for i := 1; i < len(arr); i++ {
+		curr.Next = &ListNode{Val: arr[i]}
+		curr = curr.Next
+	}
+	return head
+}
+
+func LinkedListToList(head *ListNode) []int {
+	res := []int{}
+	curr := head
+	visited := make(map[*ListNode]bool)
+	for curr != nil {
+		if visited[curr] {
+			break
+		}
+		visited[curr] = true
+		res = append(res, curr.Val)
+		curr = curr.Next
+	}
+	return res
+}
+
+func MakeCycle(arr []int, pos int) *ListNode {
+	head := ListToLinkedList(arr)
+	if pos == -1 || head == nil {
+		return head
+	}
+	tail := head
+	var target *ListNode
+	idx := 0
+	for tail != nil {
+		if idx == pos {
+			target = tail
+		}
+		if tail.Next == nil {
+			break
+		}
+		tail = tail.Next
+		idx++
+	}
+	if tail != nil && target != nil {
+		tail.Next = target
+	}
+	return head
+}
+
+func IntsToTree(vals ...int) *TreeNode {
+	if len(vals) == 0 {
+		return nil
+	}
+	root := &TreeNode{Val: vals[0]}
+	queue := []*TreeNode{root}
+	i := 1
+	for len(queue) > 0 && i < len(vals) {
+		node := queue[0]
+		queue = queue[1:]
+		if i < len(vals) {
+			node.Left = &TreeNode{Val: vals[i]}
+			queue = append(queue, node.Left)
+		}
+		i++
+		if i < len(vals) {
+			node.Right = &TreeNode{Val: vals[i]}
+			queue = append(queue, node.Right)
+		}
+		i++
+	}
+	return root
+}
+
+func TreeToInts(root *TreeNode) []int {
+	if root == nil {
+		return []int{}
+	}
+	res := []int{}
+	queue := []*TreeNode{root}
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		if node != nil {
+			res = append(res, node.Val)
+			queue = append(queue, node.Left)
+			queue = append(queue, node.Right)
+		}
+	}
+	return res
+}
+
+func ListToTree(arr []*int) *TreeNode {
+	if len(arr) == 0 || arr[0] == nil {
+		return nil
+	}
+	root := &TreeNode{Val: *arr[0]}
+	queue := []*TreeNode{root}
+	i := 1
+	for len(queue) > 0 && i < len(arr) {
+		node := queue[0]
+		queue = queue[1:]
+		if i < len(arr) && arr[i] != nil {
+			node.Left = &TreeNode{Val: *arr[i]}
+			queue = append(queue, node.Left)
+		}
+		i++
+		if i < len(arr) && arr[i] != nil {
+			node.Right = &TreeNode{Val: *arr[i]}
+			queue = append(queue, node.Right)
+		}
+		i++
+	}
+	return root
+}
+
+func TreeToList(root *TreeNode) []*int {
+	if root == nil {
+		return []*int{}
+	}
+	res := []*int{}
+	queue := []*TreeNode{root}
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		if node != nil {
+			val := node.Val
+			res = append(res, &val)
+			queue = append(queue, node.Left)
+			queue = append(queue, node.Right)
+		} else {
+			res = append(res, nil)
+		}
+	}
+	for len(res) > 0 && res[len(res)-1] == nil {
+		res = res[:len(res)-1]
+	}
+	return res
+}
+
+func BuildGraph(adj [][]int) *Node {
+	if len(adj) == 0 {
+		return nil
+	}
+	nodes := make([]*Node, len(adj))
+	for i := range adj {
+		nodes[i] = &Node{Val: i + 1}
+	}
+	for i, neighbors := range adj {
+		for _, nei := range neighbors {
+			nodes[i].Neighbors = append(nodes[i].Neighbors, nodes[nei-1])
+		}
+	}
+	return nodes[0]
+}
+
+func GraphToAdj(node *Node) [][]int {
+	if node == nil {
+		return [][]int{}
+	}
+	visited := make(map[int]*Node)
+	var dfs func(n *Node)
+	dfs = func(n *Node) {
+		if _, ok := visited[n.Val]; ok {
+			return
+		}
+		visited[n.Val] = n
+		for _, nei := range n.Neighbors {
+			dfs(nei)
+		}
+	}
+	dfs(node)
+	adj := make([][]int, len(visited))
+	for i := 1; i <= len(visited); i++ {
+		if n, ok := visited[i]; ok {
+			row := []int{}
+			for _, nei := range n.Neighbors {
+				row = append(row, nei.Val)
+			}
+			adj[i-1] = row
+		} else {
+			adj[i-1] = []int{}
+		}
+	}
+	return adj
+}
+
+func NormalizeNested(groups [][]int) [][]int {
+	res := make([][]int, len(groups))
+	for i, g := range groups {
+		cp := append([]int{}, g...)
+		sort.Ints(cp)
+		res[i] = cp
+	}
+	sort.Slice(res, func(i, j int) bool {
+		if len(res[i]) != len(res[j]) {
+			return len(res[i]) < len(res[j])
+		}
+		for k := 0; k < len(res[i]); k++ {
+			if res[i][k] != res[j][k] {
+				return res[i][k] < res[j][k]
+			}
+		}
+		return false
+	})
+	return res
+}
+
+func NormalizeNestedStrings(groups [][]string) [][]string {
+	res := make([][]string, len(groups))
+	for i, g := range groups {
+		cp := append([]string{}, g...)
+		sort.Strings(cp)
+		res[i] = cp
+	}
+	sort.Slice(res, func(i, j int) bool {
+		if len(res[i]) != len(res[j]) {
+			return len(res[i]) < len(res[j])
+		}
+		for k := 0; k < len(res[i]); k++ {
+			if res[i][k] != res[j][k] {
+				return res[i][k] < res[j][k]
+			}
+		}
+		return false
+	})
+	return res
+}
+
+func SortStrings(words []string) []string {
+	cp := append([]string{}, words...)
+	sort.Strings(cp)
+	return cp
+}
+
+func SortInts(arr []int) []int {
+	cp := append([]int{}, arr...)
+	sort.Ints(cp)
+	return cp
+}
+
+func min(a int, rest ...int) int {
+	m := a
+	for _, v := range rest {
+		if v < m {
+			m = v
+		}
+	}
+	return m
+}
+
+func max(a int, rest ...int) int {
+	m := a
+	for _, v := range rest {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+func deepEqual(expected, actual interface{}) bool {
+	if reflect.DeepEqual(expected, actual) {
+		return true
+	}
+
+	v1 := reflect.ValueOf(expected)
+	v2 := reflect.ValueOf(actual)
+
+	if !v1.IsValid() && !v2.IsValid() {
+		return true
+	}
+	if !v1.IsValid() || !v2.IsValid() {
+		return false
+	}
+
+	// Compare slices / arrays (treating nil slice and empty slice as equal)
+	if (v1.Kind() == reflect.Slice || v1.Kind() == reflect.Array) &&
+		(v2.Kind() == reflect.Slice || v2.Kind() == reflect.Array) {
+		if v1.Len() == 0 && v2.Len() == 0 {
+			return true
+		}
+		if v1.Len() != v2.Len() {
+			return false
+		}
+		for i := 0; i < v1.Len(); i++ {
+			if !deepEqual(v1.Index(i).Interface(), v2.Index(i).Interface()) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Compare maps (treating nil map and empty map as equal)
+	if v1.Kind() == reflect.Map && v2.Kind() == reflect.Map {
+		if v1.Len() == 0 && v2.Len() == 0 {
+			return true
+		}
+		if v1.Len() != v2.Len() {
+			return false
+		}
+		for _, key := range v1.MapKeys() {
+			val1 := v1.MapIndex(key)
+			val2 := v2.MapIndex(key)
+			if !val2.IsValid() || !deepEqual(val1.Interface(), val2.Interface()) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Compare pointers
+	if v1.Kind() == reflect.Ptr && v2.Kind() == reflect.Ptr {
+		if v1.IsNil() && v2.IsNil() {
+			return true
+		}
+		if v1.IsNil() || v2.IsNil() {
+			return false
+		}
+		return deepEqual(v1.Elem().Interface(), v2.Elem().Interface())
+	}
+
+	// Compare structs of matching type
+	if v1.Kind() == reflect.Struct && v2.Kind() == reflect.Struct && v1.Type() == v2.Type() {
+		for i := 0; i < v1.NumField(); i++ {
+			if !deepEqual(v1.Field(i).Interface(), v2.Field(i).Interface()) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
 
 type TestHarness struct{}
 
@@ -17,26 +381,37 @@ func (t TestHarness) BoolCheck(msg string, b bool) {
 		fmt.Printf("Test passed: %s\\n", msg)
 	} else {
 		fmt.Printf("Test failed: %s\\n", msg)
-		os.Exit(1)
+		panic(fmt.Sprintf("Test failed: %s", msg))
 	}
 }
 
 func (t TestHarness) EqualCheck(msg string, expected, actual interface{}) {
-	if reflect.DeepEqual(expected, actual) {
+	if deepEqual(expected, actual) {
 		fmt.Printf("Test passed: %s\\n", msg)
 	} else {
 		fmt.Printf("Test failed: %s\\nExpected: %#v\\nActual:   %#v\\n", msg, expected, actual)
-		os.Exit(1)
+		panic(fmt.Sprintf("Test failed: %s", msg))
 	}
 }
-`),r}function a(e,t){let r=i(),a=n(e),o=n(t),s=new Set(r.imports);a.imports.forEach(e=>s.add(e)),o.imports.forEach(e=>s.add(e));let c=[];return r.body&&c.push(r.body),a.body&&c.push(a.body),o.body&&c.push(o.body),`package main\n\n${s.size>0?`import (\n\t${Array.from(s).join(`
-	`)}\n)`:``}\n\n${c.join(`
 
-`)}`}function o(e){let t=i(),r=n(e),a=new Set(t.imports);r.imports.forEach(e=>a.add(e));let o=a.size>0?`import (\n\t${Array.from(a).join(`
-	`)}\n)`:``,s=[`package main`];o&&s.push(o),t.body&&s.push(t.body);let c=s.join(`
+func (t TestHarness) UnorderedEqualCheck(msg string, expected, actual interface{}) {
+	switch exp := expected.(type) {
+	case [][]int:
+		if act, ok := actual.([][]int); ok {
+			t.EqualCheck(msg, NormalizeNested(exp), NormalizeNested(act))
+			return
+		}
+	case [][]string:
+		if act, ok := actual.([][]string); ok {
+			t.EqualCheck(msg, NormalizeNestedStrings(exp), NormalizeNestedStrings(act))
+			return
+		}
+	}
+	t.EqualCheck(msg, expected, actual)
+}
 
-`),l=c.split(`
-`).length+1;return{combined:`${c}\n\n${r.body}`,userLineOffset:l,headerLineCount:r.headerLineCount}}async function s(e){if(typeof self.yaegiEval==`function`){let t=self.yaegiEval(e);return{success:!!t?.success,output:t?.output||``,error:t?.error||void 0}}throw Error(`WASM interpreter binary (yaegi.wasm) is not loaded.`)}t({async init(){if(i(),(0,eval)(`// Copyright 2018 The Go Authors. All rights reserved.
+
+`,t=``+new URL(`yaegi-DyQP0L0F.wasm`,self.location.href).href;function n(e){function t(e){self.postMessage(e)}let n=[],r=!1,i=new Set,a=null;Promise.resolve().then(()=>e.init?.()).then(()=>{t({type:`READY`})}).catch(e=>{console.error(`[Worker Init Error]:`,e),t({type:`INIT_ERROR`,error:e?.message||String(e)})});async function o(n){let{id:r,userCode:a,testCode:o=``}=n;if(i.has(r)){i.delete(r),t({type:`RESULT`,id:r,success:!1,output:``,error:`Execution cancelled.`});return}let s={id:r,userCode:a,testCode:o,isCancelled:()=>i.has(r)};try{let n=await e.execute(a,o,s);t({type:`RESULT`,id:r,success:n.success,output:n.output,error:n.error})}catch(e){t({type:`RESULT`,id:r,success:!1,output:``,error:e?.message||String(e)})}finally{i.delete(r)}}async function s(n){let{id:r,code:o}=n;if(a&&a!==r){t({type:`LINT_RESULT`,id:r,diagnostics:[]});return}if(i.has(r)){i.delete(r),t({type:`LINT_RESULT`,id:r,diagnostics:[]});return}let s={id:r,code:o,isCancelled:()=>i.has(r)||a!==null&&a!==r};try{let n=e.lint?await e.lint(o,s):[];t({type:`LINT_RESULT`,id:r,diagnostics:Array.isArray(n)?n:[]})}catch(e){console.error(`[Worker Lint Error]:`,e),t({type:`LINT_RESULT`,id:r,diagnostics:[]})}finally{i.delete(r)}}async function c(n){try{e.reset&&await e.reset(),t({type:`RESET_DONE`,id:n.id})}catch(e){console.error(`[Worker Reset Error]:`,e),t({type:`RESET_DONE`,id:n.id})}}async function l(){if(!r){r=!0;try{for(;n.length>0;){let e=n.shift();e.type===`RUN`?await o(e):e.type===`LINT`?await s(e):e.type===`RESET`&&await c(e)}}finally{r=!1}}}self.onmessage=e=>{let t=e.data;if(!(!t||!t.type)){if(t.type===`CANCEL`){i.add(t.id);return}t.type===`LINT`&&(a=t.id),n.push(t),l()}}}let r=null,i=null;async function a(){if(r&&!r.exited&&typeof self.yaegiRun==`function`)return;if(delete self.yaegiRun,delete self.yaegiLint,delete self.yaegiEval,(0,eval)(`// Copyright 2018 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -597,4 +972,4 @@ func (t TestHarness) EqualCheck(msg string, expected, actual interface{}) {
 		}
 	}
 })();
-`),typeof self.Go!=`function`)throw Error(`Failed to load Go WebAssembly bridge (Go constructor not found).`);let t=new self.Go,n=await fetch(e);if(!n.ok)throw Error(`Failed to load yaegi.wasm: HTTP ${n.status}`);let r=await n.arrayBuffer(),a=await WebAssembly.instantiate(r,t.importObject);if(t.run(a.instance),typeof self.yaegiEval!=`function`)throw Error(`yaegiEval is not available after WebAssembly initialization.`)},async execute(e,t=``){return await s(a(e,t))},async lint(e){if(!e.trim()||typeof self.yaegiEval!=`function`)return[];let{combined:t,userLineOffset:n,headerLineCount:r}=o(e);try{let e=await s(t);if(e.success||!e.error)return[];let i=e.error,a=[],o=/(?:^|\n)(?:_:)??(\d+):(\d+):\s*(.*)/g,c;for(;(c=o.exec(i))!==null;){let e=parseInt(c[1],10)||1,t=parseInt(c[2],10)||1,i=c[3].trim(),o=e-n+r+1;o<=0&&(o=1),a.push({line:o,column:t,severity:`error`,message:i,source:`go`})}return a.length===0&&i&&a.push({line:1,column:1,severity:`error`,message:i.trim(),source:`go`}),a}catch(e){return console.warn(`[Go Worker Lint Error]:`,e),[]}}})})();
+`),typeof self.Go!=`function`)throw Error(`Failed to load Go WebAssembly bridge (Go constructor not found).`);if(r=new self.Go,!i){let e=await fetch(t);if(!e.ok)throw Error(`Failed to load yaegi.wasm: HTTP ${e.status}`);let n=await e.arrayBuffer();i=await WebAssembly.compile(n)}let e=await WebAssembly.instantiate(i,r.importObject);if(r.run(e).catch(e=>{console.warn(`[Go WASM Runtime Exited]:`,e)}),typeof self.yaegiRun!=`function`)throw Error(`yaegiRun is not available after WebAssembly initialization.`)}n({async init(){await a()},async execute(t,n=``){if(await a(),typeof self.yaegiRun==`function`)try{let r=self.yaegiRun(e,t,n);return{success:!!r?.success,output:r?.output||``,error:r?.error||void 0}}catch(e){return r&&(r.exited=!0),{success:!1,output:``,error:e?.message||String(e)}}throw Error(`WASM interpreter binary (yaegi.wasm) is not loaded.`)},async lint(t){if(!t.trim())return[];try{if(await a(),typeof self.yaegiLint!=`function`)return[];let n=self.yaegiLint(e,t);return Array.isArray(n)?n.map(e=>({line:typeof e.line==`number`?e.line:1,column:typeof e.column==`number`?e.column:1,message:String(e.message||``),severity:e.severity||`error`,source:`go`})):[]}catch(e){return console.warn(`[Go Worker Lint Error]:`,e),r&&String(e).includes(`exited`)&&(r.exited=!0),[]}},async reset(){r&&(r.exited=!0),await a()}})})();
