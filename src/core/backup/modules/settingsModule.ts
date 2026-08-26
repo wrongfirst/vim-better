@@ -1,7 +1,6 @@
-// src/core/backup/modules/settingsModule.ts
 import { AppState, ChatSettings, GistSyncSettings, defaultChatSettings, defaultGistSyncSettings } from '../../types';
 import { decryptSecret } from '../../crypto';
-import { BackupModule, ExportOptions, SettingsPayload } from '../types';
+import { ExportOptions, SettingsPayload } from '../types';
 
 export async function exportSettings(
   state: AppState,
@@ -44,9 +43,7 @@ export async function exportSettings(
   }
 
   return {
-    editor: {
-      vimMode: !!state.vimMode,
-    },
+    vimMode: !!state.vimMode,
     chatSettings,
     gistSyncSettings,
   };
@@ -56,10 +53,22 @@ export function sanitizeSettings(raw: unknown, current: AppState): Partial<AppSt
   if (!raw || typeof raw !== 'object') {
     return {};
   }
-  const payload = raw as Partial<SettingsPayload>;
+  const payload = raw as any;
+
+  const hasSettingsData =
+    typeof payload.vimMode === 'boolean' ||
+    (payload.editor && typeof payload.editor === 'object') ||
+    (payload.chatSettings && typeof payload.chatSettings === 'object') ||
+    (payload.gistSyncSettings && typeof payload.gistSyncSettings === 'object');
+
+  if (!hasSettingsData) {
+    return {};
+  }
 
   let restoredVimMode = current.vimMode;
-  if (payload.editor && typeof payload.editor === 'object' && typeof payload.editor.vimMode === 'boolean') {
+  if (typeof payload.vimMode === 'boolean') {
+    restoredVimMode = payload.vimMode;
+  } else if (payload.editor && typeof payload.editor === 'object' && typeof payload.editor.vimMode === 'boolean') {
     restoredVimMode = payload.editor.vimMode;
   }
 
@@ -67,7 +76,7 @@ export function sanitizeSettings(raw: unknown, current: AppState): Partial<AppSt
   if (payload.chatSettings && typeof payload.chatSettings === 'object') {
     const rawCs = payload.chatSettings;
     const endpoints = Array.isArray(rawCs.endpoints)
-      ? rawCs.endpoints.map((ep) => ({
+      ? rawCs.endpoints.map((ep: any) => ({
           id: String(ep.id || 'default-endpoint'),
           name: ep.name ? String(ep.name) : undefined,
           baseUrl: String(ep.baseUrl || ''),
@@ -108,12 +117,12 @@ export function sanitizeSettings(raw: unknown, current: AppState): Partial<AppSt
   };
 }
 
-export function mergeSettings(local: AppState, remote: SettingsPayload): Partial<AppState> {
+export function mergeSettings(local: AppState, remote: SettingsPayload | any): Partial<AppState> {
   const localChat = local.chatSettings || defaultChatSettings;
   const remoteChat = remote.chatSettings || defaultChatSettings;
 
   // Preserve local API keys if remote keys are empty/stripped
-  const mergedEndpoints = (remoteChat.endpoints || []).map((remEp) => {
+  const mergedEndpoints = (remoteChat.endpoints || []).map((remEp: any) => {
     const matchingLocal = localChat.endpoints?.find((locEp) => locEp.id === remEp.id);
     return {
       ...remEp,
@@ -139,7 +148,9 @@ export function mergeSettings(local: AppState, remote: SettingsPayload): Partial
   };
 
   const remoteVimMode =
-    remote.editor && typeof remote.editor.vimMode === 'boolean'
+    typeof (remote as any).vimMode === 'boolean'
+      ? (remote as any).vimMode
+      : remote.editor && typeof remote.editor.vimMode === 'boolean'
       ? remote.editor.vimMode
       : local.vimMode;
 
@@ -150,10 +161,3 @@ export function mergeSettings(local: AppState, remote: SettingsPayload): Partial
   };
 }
 
-export const settingsModule: BackupModule<SettingsPayload> = {
-  id: 'settings',
-  filename: 'settings.json',
-  exportData: (state, options) => exportSettings(state, options),
-  sanitizeData: (raw, current) => sanitizeSettings(raw, current),
-  mergeData: (local, remote) => mergeSettings(local, remote),
-};

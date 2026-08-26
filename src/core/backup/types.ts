@@ -1,10 +1,10 @@
-// src/core/backup/types.ts
-import { AppState, ChatSettings, GistSyncSettings } from '../types';
+import { AppState, ChatConversation, ChatMessage, ChatSettings, GistSyncSettings } from '../types';
 
 export interface MetadataPayload {
   version: number;
   siteTitle: string;
   siteSlug: string;
+  storageKey: string;
   exportedAt: string;
   updatedAt: number;
 }
@@ -12,7 +12,6 @@ export interface MetadataPayload {
 export interface LessonProgressItem {
   slug: string;
   completed: boolean;
-  completedLanguages?: string[];
   code?: Record<string, string>;
   updatedAt?: number;
 }
@@ -24,34 +23,17 @@ export interface LessonsPayload {
   lessons: LessonProgressItem[];
 }
 
-export interface SavedChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-}
+export type SavedChatMessage = ChatMessage;
 
-export interface SavedConversation {
-  id: string;
-  lessonSlug: string;
-  languageId: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: SavedChatMessage[];
-}
+export type SavedConversation = Omit<ChatConversation, 'unread'>;
 
 export interface ConversationsPayload {
   version: number;
   conversations: SavedConversation[];
 }
 
-export interface EditorSettingsPayload {
-  vimMode: boolean;
-}
-
 export interface SettingsPayload {
-  editor: EditorSettingsPayload;
+  vimMode: boolean;
   chatSettings: ChatSettings;
   gistSyncSettings: GistSyncSettings;
 }
@@ -67,10 +49,3 @@ export interface ExportOptions {
   includeKeys?: boolean;
 }
 
-export interface BackupModule<T> {
-  id: string;
-  filename: string;
-  exportData: (state: AppState, options?: ExportOptions) => Promise<T> | T;
-  sanitizeData: (raw: unknown, current: AppState) => Partial<AppState>;
-  mergeData: (local: AppState, remote: T) => Partial<AppState>;
-}

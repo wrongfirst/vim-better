@@ -1,4 +1,4 @@
-// src/core/ai/client.ts
+// src/core/chat/client.ts
 import { store, ChatMessage } from '../store';
 import { buildSystemPrompt } from './context';
 import { decryptSecret } from '../crypto';
@@ -24,7 +24,7 @@ export async function streamCompletion(options: StreamOptions): Promise<string> 
   const timeoutMs = options.timeoutMs ?? 120000;
   const state = store.getState();
   const settings = state.chatSettings;
-  const { currentExerciseId } = state;
+  const { activeLessonSlug } = state;
 
   if (!settings?.enabled) {
     throw new Error('Rubber Duck is currently disabled. Please enable it in Settings.');
@@ -39,21 +39,25 @@ export async function streamCompletion(options: StreamOptions): Promise<string> 
     throw new Error('No model selected. Please select a model in Settings.');
   }
 
-  const endpoint = resolveEndpoint(settings.baseUrl);
+  const endpoint = getChatCompletionsUrl(settings.baseUrl);
   const { systemPrompt } = buildSystemPrompt();
 
   // Retrieve past messages for the active conversation of this exercise
-  const convId = conversationId || state.activeConversationId[currentExerciseId];
-  const convs = state.chatConversations[currentExerciseId] || [];
+  const convId = conversationId || state.activeConversationId[activeLessonSlug];
+  const convs = state.chatConversations[activeLessonSlug] || [];
   const activeConv = convs.find(c => c.id === convId) || convs[0];
   const history = (activeConv?.messages || [])
     .filter(m => m.role === 'user' || m.role === 'assistant')
     .map(m => ({ role: m.role, content: m.content }));
 
+  // Check if the current user prompt is already recorded in history
+  const lastMsg = history[history.length - 1];
+  const isAlreadyInHistory = lastMsg && lastMsg.role === 'user' && lastMsg.content === userPrompt;
+
   const messages = [
     { role: 'system', content: systemPrompt },
     ...history,
-    { role: 'user', content: userPrompt },
+    ...(isAlreadyInHistory ? [] : [{ role: 'user', content: userPrompt }]),
   ];
 
   const headers: Record<string, string> = {
@@ -200,13 +204,28 @@ export async function streamCompletion(options: StreamOptions): Promise<string> 
   return accumulated;
 }
 
-function resolveEndpoint(baseUrl: string): string {
+/**
+ * Normalizes a base URL and returns the standard chat completions endpoint URL.
+ */
+export function getChatCompletionsUrl(baseUrl: string): string {
   const clean = baseUrl.trim().replace(/\/+$/, '');
   if (clean.endsWith('/chat/completions')) {
     return clean;
   }
-  if (clean.endsWith('/v1')) {
-    return `${clean}/chat/completions`;
-  }
   return `${clean}/chat/completions`;
 }
+
+/**
+ * Normalizes a base URL and returns the standard models listing endpoint URL.
+ */
+export function getModelsUrl(baseUrl: string): string {
+  const clean = baseUrl.trim().replace(/\/+$/, '');
+  if (clean.endsWith('/chat/completions')) {
+    return clean.replace(/\/chat\/completions$/, '/models');
+  }
+  if (clean.endsWith('/models')) {
+    return clean;
+  }
+  return `${clean}/models`;
+}
+
