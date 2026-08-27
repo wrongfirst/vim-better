@@ -1,52 +1,52 @@
 chapters:
   "Getting Started":
     - hello_world
-
+  
   "The Basics & Insert Mode":
-    - insert_at_end_of_line
-    - insert_at_beginning_of_line
-    - one_step_back_two_forward
-    - find_and_replace_by_hand
-    - use_counts
-    - combine_and_conquer
-    - delete_in_insert_mode
-    - paste_from_register_in_insert_mode
-    - overwrite_existing_text_with_replace
+    - 01_insert_at_end_of_line
+    - 02_insert_at_beginning_of_line
+    - 03_one_step_back_two_forward
+    - 05_find_and_replace_by_hand
+    - 10_use_counts
+    - 12_combine_and_conquer
+    - 13_delete_in_insert_mode
+    - 15_paste_from_register_in_insert_mode
+    - 19_overwrite_existing_text_with_replace
 
   "Visual Mode":
-    - grokking_visual_mode
-    - defining_visual_selection
-    - repeat_likewise_visual_commands
-    - prefer_operators_to_visual_commands
-    - editing_tabular_data_with_visual_block_mode
-    - changing_column_of_text
-    - append_after_a_ragged_visual_block
+    - 20_grokking_visual_mode
+    - 21_defining_visual_selection
+    - 22_repeat_likewise_visual_commands
+    - 23_prefer_operators_to_visual_commands
+    - 24_editing_tabular_data_with_visual_block_mode
+    - 25_changing_column_of_text
+    - 26_append_after_a_ragged_visual_block
 
   "Command-Line Mode":
-    - duplicate_or_move_lines
-    - run_normal_mode_commands_across_range
+    - 29_duplicate_or_move_lines
+    - 30_run_normal_mode_commands_across_range
 
   "Motions & Text Objects":
-    - find_by_character
-    - operate_with_a_search_motion
-    - trace_your_selection_with_precision_text_objects
-    - jump_between_matching_parentheses
-    - mark_your_place_and_snap_back_to_it
+    - 49_find_by_character
+    - 50_operate_with_a_search_motion
+    - 51_trace_your_selection_with_precision_text_objects
+    - 52_jump_between_matching_parentheses
+    - 53_mark_your_place_and_snap_back_to_it
 
   "Registers & Pasting":
-    - delete_yank_and_put_with_unnamed_register
-    - grok_vim_registers
-    - replace_visual_selection_with_a_register
-    - pasting_from_a_register
+    - 59_delete_yank_and_put_with_unnamed_register
+    - 60_grok_vim_registers
+    - 61_replace_visual_selection_with_a_register
+    - 62_pasting_from_a_register
 
   "Macros":
-    - record_and_execute_a_macro
-    - play_back_with_a_count
-    - repeat_a_change_on_contiguous_lines
-    - append_commands_to_macro
-    - edit_the_contents_of_a_macro
+    - 64_record_and_execute_a_macro
+    - 66_play_back_with_a_count
+    - 67_repeat_a_change_on_contiguous_lines
+    - 68_append_commands_to_macro
+    - 71_edit_the_contents_of_a_macro
 
   "Search & Navigation":
-    - tune_the_case_sensitivity_of_search_patterns
-    - meet_the_search_command
-    - navigating_on_long_page
+    - 72_tune_the_case_sensitivity_of_search_patterns
+    - 79_meet_the_search_command
+    - extra_02_navigating_on_long_page
