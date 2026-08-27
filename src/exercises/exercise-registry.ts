@@ -38,9 +38,12 @@ function generateId(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
-// Format exercise title from directory name
-function formatTitle(folder: string): string {
+// Format exercise title from markdown header or directory name
+function formatTitle(folder: string, description: string = ''): string {
+  const match = description.match(/^#{1,3}\s+(.+)$/m);
+  if (match) return match[1].trim();
   return folder
+    .replace(/^(\d+_|extra_\d+_)/, '')
     .split('_')
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
@@ -62,7 +65,7 @@ export const curriculum: Chapter[] = rawChapters.map((ch) => {
       const exId = folder;
       const problemPath = `./${folder}/problem.md`;
       const description = problemFiles[problemPath] || '';
-      const title = formatTitle(folder);
+      const title = formatTitle(folder, description);
 
       const exercise: Exercise = {
         id: exId,

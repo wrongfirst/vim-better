@@ -1,0 +1,8 @@
+Practica lvim
+
+2) line two
+1) line one
+3) line three
+
+collection = getCollection();
+process(somethingInTheWay, target);
