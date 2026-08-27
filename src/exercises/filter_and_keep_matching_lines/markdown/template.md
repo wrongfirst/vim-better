@@ -1,0 +1,6 @@
+[INFO] Application starting...
+[DEBUG] Initializing cache
+[ERROR] Database connection failed
+[INFO] Retrying connection...
+[ERROR] Timeout reached on port 5432
+[DEBUG] Releasing pool resources
